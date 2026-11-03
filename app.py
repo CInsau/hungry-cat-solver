@@ -135,4 +135,56 @@ def generate_line_possibilities(length, constraints):
 
     return [p for p in build_line(0, []) if len(p) == length]
 
-def solve_nonogram(width
+def solve_nonogram(width, height, row_constraints, col_constraints):
+    grid = [[None for _ in range(width)] for _ in range(height)]
+    row_poss = [generate_line_possibilities(width, r) for r in row_constraints]
+    col_poss = [generate_line_possibilities(height, c) for c in col_constraints]
+
+    changed = True
+    iter_count = 0
+    while changed and iter_count < 150:
+        changed = False
+        iter_count += 1
+        
+        for r in range(height):
+            row_poss[r] = [p for p in row_poss[r] if all(grid[r][c] is None or grid[r][c] == p[c] for c in range(width))]
+            if not row_poss[r]:
+                return None, f"Conflicto en la Fila {r+1}. Revisa las pistas."
+            for c in range(width):
+                colors = set(p[c] for p in row_poss[r])
+                if len(colors) == 1 and grid[r][c] is None:
+                    grid[r][c] = list(colors)[0]
+                    changed = True
+
+        for c in range(width):
+            col_poss[c] = [p for p in col_poss[c] if all(grid[r][c] is None or grid[r][c] == p[r] for r in range(height))]
+            if not col_poss[c]:
+                return None, f"Conflicto en la Columna {c+1}. Revisa las pistas."
+            for r in range(height):
+                colors = set(p[r] for p in col_poss[c])
+                if len(colors) == 1 and grid[r][c] is None:
+                    grid[r][c] = list(colors)[0]
+                    changed = True
+
+    return grid, None
+
+
+# --- BOTÓN DE RESOLUCIÓN Y RESULTADO ---
+st.markdown("---")
+if st.button("🧩 Resolver Nonograma", type="primary", use_container_width=True):
+    with st.spinner("Calculando solución..."):
+        grid, err = solve_nonogram(width, height, row_constraints, col_constraints)
+    if err:
+        st.error(err)
+    else:
+        st.success("¡Puzle Resuelto con éxito!")
+        
+        result_html = '<div style="display: inline-block; background: #0f172a; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">'
+        for row in grid:
+            result_html += '<div style="display: flex;">'
+            for cell in row:
+                color = cell if cell and cell != '.' else "#334155"
+                result_html += f'<div style="width: 32px; height: 32px; background-color: {color}; border: 1px solid #1e293b; margin: 2px; border-radius: 6px;"></div>'
+            result_html += '</div>'
+        result_html += '</div>'
+        st.markdown(result_html, unsafe_allow_html=True)
