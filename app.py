@@ -5,7 +5,7 @@ import itertools
 st.set_page_config(page_title="Hungry Cat Nonogram Solver", page_icon="🐱", layout="wide")
 
 st.title("🐱 Hungry Cat Nonogram Solver")
-st.write("Configura el grid, selecciona el color de cada fila/columna en su cabecera y añade los bloques y círculos.")
+st.write("Configura el grid, asigna el color a cada columna de bloques en la **Fila 0** y rellena los valores con sus círculos.")
 
 # --- 1. SELECCIÓN DE TAMAÑO Y PREVISUALIZACIÓN VISUAL ---
 st.subheader("📏 1. Tamaño del Tablero y Previsualización")
@@ -15,7 +15,7 @@ with col_w:
 with col_h:
     height = st.number_input("Alto (Filas)", min_value=2, max_value=20, value=5)
 
-# Mostrar previsualización vacía del grid inmediatamente
+# Previsualización vacía del grid
 st.markdown("##### Vista previa del grid vacío:")
 grid_preview_html = '<div style="display: inline-block; background: #1e293b; padding: 6px; border-radius: 8px;">'
 for r in range(height):
@@ -39,7 +39,7 @@ COLOR_MAP = {
 }
 
 # Configuración global del número máximo de bloques por línea
-max_blocks_limit = st.slider("Número máximo de bloques por fila/columna", min_value=1, max_value=8, value=3)
+max_blocks_limit = st.slider("Número máximo de bloques por fila/columna", min_value=1, max_value=8, value=4)
 
 # --- 2. ENTRADA RÁPIDA DE FILAS Y COLUMNAS ---
 tab_rows, tab_cols = st.tabs(["📋 Pistas de Filas", "📊 Pistas de Columnas"])
@@ -47,54 +47,76 @@ tab_rows, tab_cols = st.tabs(["📋 Pistas de Filas", "📊 Pistas de Columnas"]
 row_constraints = []
 col_constraints = []
 
+# Distribución de pesos para alinear las columnas: [Etiqueta Fila/Col] + [Número, Check Círculo] x N
+layout_weights = [1.2] + [1.8, 0.8] * max_blocks_limit
+
 with tab_rows:
-    st.markdown("Selecciona el color de cada fila en su combo y rellena los números y sus círculos **🔴**.")
+    st.markdown("### Cabecera (Fila 0): Selecciona el color de cada columna de bloques")
+    
+    # --- FILA 0: COMBOS DE COLOR POR BLOQUE PARA FILAS ---
+    header_cols = st.columns(layout_weights)
+    with header_cols[0]:
+        st.markdown("**Color Bloque**")
+    
+    row_block_colors = []
+    for b in range(max_blocks_limit):
+        with header_cols[1 + b * 2]:
+            color_name = st.selectbox(f"Color B{b+1}", list(COLOR_MAP.keys()), key=f"r_hdr_col_{b}", label_visibility="collapsed")
+            row_block_colors.append(COLOR_MAP[color_name])
+
+    st.markdown("---")
+    st.markdown("### Valores por Fila")
+
+    # --- FILAS 1..N ---
     for r in range(height):
-        # Layout: [Etiqueta Fila] [Combo Color] + [Bloque, Check] x N
-        layout_weights = [1.2, 1.5] + [1.5, 0.8] * max_blocks_limit
         cols_input = st.columns(layout_weights)
-        
         with cols_input[0]:
             st.markdown(f"**Fila {r+1}**")
-        with cols_input[1]:
-            row_color_name = st.selectbox(f"Color F{r+1}", list(COLOR_MAP.keys()), key=f"r_col_{r}", label_visibility="collapsed")
         
         row_blocks = []
-        current_col_idx = 2
         for b in range(max_blocks_limit):
-            with cols_input[current_col_idx]:
+            with cols_input[1 + b * 2]:
                 val = st.number_input(f"F{r}_L{b}", min_value=0, max_value=width, value=0, key=f"r_l_{r}_{b}", label_visibility="collapsed")
-            with cols_input[current_col_idx + 1]:
+            with cols_input[2 + b * 2]:
                 chained = st.checkbox(f"🔴", key=f"r_ch_{r}_{b}", help="¿Va con círculo / seguido?")
             
             if val > 0:
-                row_blocks.append((val, COLOR_MAP[row_color_name], chained))
-            current_col_idx += 2
+                row_blocks.append((val, row_block_colors[b], chained))
             
         row_constraints.append(row_blocks)
 
 with tab_cols:
-    st.markdown("Selecciona el color de cada columna en su combo y rellena los números y sus círculos **🔴**.")
+    st.markdown("### Cabecera (Fila 0): Selecciona el color de cada columna de bloques")
+    
+    # --- FILA 0: COMBOS DE COLOR POR BLOQUE PARA COLUMNAS ---
+    header_cols_c = st.columns(layout_weights)
+    with header_cols_c[0]:
+        st.markdown("**Color Bloque**")
+    
+    col_block_colors = []
+    for b in range(max_blocks_limit):
+        with header_cols_c[1 + b * 2]:
+            color_name = st.selectbox(f"Color CB{b+1}", list(COLOR_MAP.keys()), key=f"c_hdr_col_{b}", label_visibility="collapsed")
+            col_block_colors.append(COLOR_MAP[color_name])
+
+    st.markdown("---")
+    st.markdown("### Valores por Columna")
+
+    # --- COLUMNAS 1..N ---
     for c in range(width):
-        layout_weights = [1.2, 1.5] + [1.5, 0.8] * max_blocks_limit
         cols_input = st.columns(layout_weights)
-        
         with cols_input[0]:
             st.markdown(f"**Col {c+1}**")
-        with cols_input[1]:
-            col_color_name = st.selectbox(f"Color C{c+1}", list(COLOR_MAP.keys()), key=f"c_col_{c}", label_visibility="collapsed")
         
         col_blocks = []
-        current_col_idx = 2
         for b in range(max_blocks_limit):
-            with cols_input[current_col_idx]:
+            with cols_input[1 + b * 2]:
                 val = st.number_input(f"C{c}_L{b}", min_value=0, max_value=height, value=0, key=f"c_l_{c}_{b}", label_visibility="collapsed")
-            with cols_input[current_col_idx + 1]:
+            with cols_input[2 + b * 2]:
                 chained = st.checkbox(f"🔴", key=f"c_ch_{c}_{b}", help="¿Va con círculo / seguido?")
             
             if val > 0:
-                col_blocks.append((val, COLOR_MAP[col_color_name], chained))
-            current_col_idx += 2
+                col_blocks.append((val, col_block_colors[b], chained))
             
         col_constraints.append(col_blocks)
 
