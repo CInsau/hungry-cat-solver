@@ -4,8 +4,8 @@ import itertools
 # Configuración de página móvil-friendly
 st.set_page_config(page_title="Hungry Cat Nonogram Solver", page_icon="🐱", layout="wide")
 
-st.title("🐱 Hungry Cat Nonogram Solver")
-st.write("Configura el grid y añade los colores y la regla de números **seguidos (con círculo)**.")
+st.title("🐱 Hungry Cat Nonogram Solver (Hasta 20x20)")
+st.write("Configura el grid de hasta 20x20 y añade los colores y la regla de números **seguidos (con círculo)**.")
 
 # --- ALGORITMO DE RESOLUCIÓN ---
 def generate_line_possibilities(length, constraints):
@@ -50,7 +50,7 @@ def solve_nonogram(width, height, row_constraints, col_constraints):
 
     changed = True
     iter_count = 0
-    while changed and iter_count < 100:
+    while changed and iter_count < 150:
         changed = False
         iter_count += 1
         
@@ -79,17 +79,17 @@ def solve_nonogram(width, height, row_constraints, col_constraints):
 # --- INTERFAZ GRAFICA ---
 col_w, col_h = st.columns(2)
 with col_w:
-    width = st.number_input("Ancho (Columnas)", min_value=2, max_value=10, value=4)
+    width = st.number_input("Ancho (Columnas)", min_value=2, max_value=20, value=5)
 with col_h:
-    height = st.number_input("Alto (Filas)", min_value=2, max_value=10, value=4)
+    height = st.number_input("Alto (Filas)", min_value=2, max_value=20, value=5)
 
 COLOR_MAP = {"Rojo": "#ef4444", "Azul": "#3b82f6", "Verde": "#22c55e", "Amarillo": "#eab308", "Morado": "#a855f7"}
 
 st.subheader("1. Restricciones de Filas")
 row_constraints = []
 for r in range(height):
-    with st.expander(f"Fila {r+1}", expanded=True):
-        n_blocks = st.number_input(f"Número de bloques en Fila {r+1}", min_value=0, max_value=4, value=1, key=f"r_num_{r}")
+    with st.expander(f"Fila {r+1}", expanded=False):
+        n_blocks = st.number_input(f"Número de bloques en Fila {r+1}", min_value=0, max_value=10, value=1, key=f"r_num_{r}")
         blocks = []
         for b in range(n_blocks):
             c1, c2, c3 = st.columns([1, 1, 1])
@@ -105,8 +105,8 @@ for r in range(height):
 st.subheader("2. Restricciones de Columnas")
 col_constraints = []
 for c in range(width):
-    with st.expander(f"Columna {c+1}", expanded=True):
-        n_blocks = st.number_input(f"Número de bloques en Col {c+1}", min_value=0, max_value=4, value=1, key=f"c_num_{c}")
+    with st.expander(f"Columna {c+1}", expanded=False):
+        n_blocks = st.number_input(f"Número de bloques en Col {c+1}", min_value=0, max_value=10, value=1, key=f"c_num_{c}")
         blocks = []
         for b in range(n_blocks):
             c1, c2, c3 = st.columns([1, 1, 1])
@@ -120,13 +120,16 @@ for c in range(width):
         col_constraints.append(blocks)
 
 if st.button("🧩 Resolver Nonograma", type="primary", use_container_width=True):
-    grid, err = solve_nonogram(width, height, row_constraints, col_constraints)
+    with st.spinner("Calculando solución..."):
+        grid, err = solve_nonogram(width, height, row_constraints, col_constraints)
     if err:
         st.error(err)
     else:
         st.success("¡Puzle Resuelto!")
+        
+        # Mostrar matriz resultante adaptativa para tamaños grandes
         for row in grid:
             cols = st.columns(width)
             for i, cell in enumerate(row):
                 color = cell if cell and cell != '.' else "#334155"
-                cols[i].markdown(f'<div style="background-color:{color};height:40px;border-radius:8px;margin:2px;"></div>', unsafe_allow_html=True)
+                cols[i].markdown(f'<div style="background-color:{color};height:28px;border-radius:4px;margin:1px;"></div>', unsafe_allow_html=True)
