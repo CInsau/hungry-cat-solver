@@ -5,7 +5,7 @@ import itertools
 st.set_page_config(page_title="Hungry Cat Nonogram Solver", page_icon="🐱", layout="wide")
 
 st.title("🐱 Hungry Cat Nonogram Solver (Hasta 20x20)")
-st.write("Configura el grid de hasta 20x20 y añade los colores y la regla de números **seguidos (con círculo)**.")
+st.write("Configura el grid de hasta 20x20, selecciona los colores y marca la regla de números **seguidos (con círculo)**.")
 
 # --- ALGORITMO DE RESOLUCIÓN ---
 def generate_line_possibilities(length, constraints):
@@ -83,7 +83,17 @@ with col_w:
 with col_h:
     height = st.number_input("Alto (Filas)", min_value=2, max_value=20, value=5)
 
-COLOR_MAP = {"Rojo": "#ef4444", "Azul": "#3b82f6", "Verde": "#22c55e", "Amarillo": "#eab308", "Morado": "#a855f7"}
+# Paleta de colores ampliada
+COLOR_MAP = {
+    "Rojo": "#ef4444", 
+    "Azul": "#3b82f6", 
+    "Verde": "#22c55e", 
+    "Amarillo": "#eab308", 
+    "Morado": "#a855f7",
+    "Naranja": "#f97316",
+    "Marrón": "#92400e",
+    "Turquesa": "#06b6d4"
+}
 
 st.subheader("1. Restricciones de Filas")
 row_constraints = []
@@ -127,7 +137,6 @@ if st.button("🧩 Resolver Nonograma", type="primary", use_container_width=True
     else:
         st.success("¡Puzle Resuelto!")
         
-        # Mostrar matriz resultante adaptativa para tamaños grandes
         for row in grid:
             cols = st.columns(width)
             for i, cell in enumerate(row):
