@@ -5,7 +5,7 @@ import itertools
 st.set_page_config(page_title="Hungry Cat Nonogram Solver", page_icon="🐱", layout="wide")
 
 st.title("🐱 Hungry Cat Nonogram Solver")
-st.write("Configura el grid, asigna el color a cada columna de bloques en la **Fila 0** y rellena los valores con sus círculos.")
+st.write("Configura el grid, asigna los colores y bloques. Ahora el solucionador calcula correctamente las cantidades de cada color sin importar el orden.")
 
 # --- 1. SELECCIÓN DE TAMAÑO Y PREVISUALIZACIÓN VISUAL ---
 st.subheader("📏 1. Tamaño del Tablero y Previsualización")
@@ -38,7 +38,6 @@ COLOR_MAP = {
     "Turquesa": "#06b6d4"
 }
 
-# Configuración global del número máximo de bloques por línea
 max_blocks_limit = st.slider("Número máximo de bloques por fila/columna", min_value=1, max_value=8, value=4)
 
 # --- 2. ENTRADA RÁPIDA DE FILAS Y COLUMNAS ---
@@ -47,13 +46,10 @@ tab_rows, tab_cols = st.tabs(["📋 Pistas de Filas", "📊 Pistas de Columnas"]
 row_constraints = []
 col_constraints = []
 
-# Distribución de pesos para alinear las columnas: [Etiqueta Fila/Col] + [Número, Check Círculo] x N
 layout_weights = [1.2] + [1.8, 0.8] * max_blocks_limit
 
 with tab_rows:
-    st.markdown("### Cabecera (Fila 0): Selecciona el color de cada columna de bloques")
-    
-    # --- FILA 0: COMBOS DE COLOR POR BLOQUE PARA FILAS ---
+    st.markdown("### Cabecera (Fila 0): Color de cada bloque")
     header_cols = st.columns(layout_weights)
     with header_cols[0]:
         st.markdown("**Color Bloque**")
@@ -67,7 +63,6 @@ with tab_rows:
     st.markdown("---")
     st.markdown("### Valores por Fila")
 
-    # --- FILAS 1..N ---
     for r in range(height):
         cols_input = st.columns(layout_weights)
         with cols_input[0]:
@@ -86,9 +81,7 @@ with tab_rows:
         row_constraints.append(row_blocks)
 
 with tab_cols:
-    st.markdown("### Cabecera (Fila 0): Selecciona el color de cada columna de bloques")
-    
-    # --- FILA 0: COMBOS DE COLOR POR BLOQUE PARA COLUMNAS ---
+    st.markdown("### Cabecera (Fila 0): Color de cada bloque")
     header_cols_c = st.columns(layout_weights)
     with header_cols_c[0]:
         st.markdown("**Color Bloque**")
@@ -102,7 +95,6 @@ with tab_cols:
     st.markdown("---")
     st.markdown("### Valores por Columna")
 
-    # --- COLUMNAS 1..N ---
     for c in range(width):
         cols_input = st.columns(layout_weights)
         with cols_input[0]:
@@ -121,67 +113,119 @@ with tab_cols:
         col_constraints.append(col_blocks)
 
 
-# --- ALGORITMO DE RESOLUCIÓN ---
+# --- NUEVO ALGORITMO BASADO EN CONTEO Y BLOQUES INDEPENDIENTES ---
 def generate_line_possibilities(length, constraints):
-    def build_line(index, current_line):
-        if index == len(constraints):
-            remaining = length - len(current_line)
-            return [current_line + ['.'] * remaining]
-        
-        block_len, color, is_chained = constraints[index]
-        possibilities = []
-        
-        min_space_after = 0
-        if index < len(constraints) - 1:
-            next_block_len, next_color, _ = constraints[index + 1]
-            if next_color == color and not is_chained:
-                min_space_after = 1
+    """
+    Genera todas las combinaciones posibles de una línea (fila o columna) 
+    respetando los totales por color y si deben ir agrupados (con círculo) o dispersos.
+    """
+    # Agrupar restricciones por color
+    color_reqs = {}
+    for length_val, color, is_chained in constraints:
+        if color not in color_reqs:
+            color_reqs[color] = {'total': 0, 'chained_blocks': []}
+        color_reqs[color]['total'] += length_val
+        if is_chained:
+            color_reqs[color]['chained_blocks'].append(length_val)
 
-        max_start = length - block_len - min_space_after
-        current_pos = len(current_line)
+    # Validación rápida de espacio total
+    total_cells_needed = sum(req['total'] for req in color_reqs.values())
+    if total_cells_needed > length:
+        return []
 
-        for start in range(current_pos, max_start + 1):
-            empty_prefix = ['.'] * (start - current_pos)
-            block = [color] * block_len
-            
-            if index > 0 and current_line:
-                prev_color = constraints[index-1][1]
-                prev_chained = constraints[index-1][2]
-                if prev_color == color and not prev_chained and len(empty_prefix) == 0:
+    # Recopilar todos los colores presentes
+    colors_list = list(color_reqs.keys())
+    
+    valid_possibilities = []
+
+    # Generador recursivo para asignar celdas de cada color o vacío '.'
+    def fill_positions(index, current_line):
+        if index == length:
+            # Validar si esta línea cumple exactamente con los bloques encadenados (con círculo) exigidos
+            if validate_chained_rules(current_line, color_reqs):
+                valid_possibilities.append(current_line)
+            return
+
+        # Intentar poner cada color disponible o celda vacía '.'
+        # Para optimizar, probamos primero con los colores que tienen más demanda o celdas vacías
+        options = ['.'] + colors_list
+        for opt in options:
+            # Comprobar si excedemos el total permitido para este color en la línea
+            if opt != '.':
+                current_count = current_line.count(opt)
+                if current_count >= color_reqs[opt]['total']:
                     continue
+            
+            fill_positions(index + 1, current_line + [opt])
 
-            new_line = current_line + empty_prefix + block
-            possibilities.extend(build_line(index + 1, new_line))
+    # Función auxiliar para comprobar bloques contiguos (con círculo)
+    def validate_chained_rules(line, reqs):
+        # Verificar totales exactos por color
+        for col, data in reqs.items():
+            if line.count(col) != data['total']:
+                return False
+            
+            # Verificar bloques encadenados (con círculo)
+            # Buscamos bloques contiguos de este color
+            found_blocks = []
+            current_block_len = 0
+            for cell in line:
+                if cell == col:
+                    current_block_len += 1
+                else:
+                    if current_block_len > 0:
+                        found_blocks.append(current_block_len)
+                        current_block_len = 0
+            if current_block_len > 0:
+                found_blocks.append(current_block_len)
 
-        return possibilities
+            # Comprobar que los bloques encidados requeridos existen como bloques continuos
+            for required_len in data['chained_blocks']:
+                if required_len in found_blocks:
+                    found_blocks.remove(required_len)
+                else:
+                    return False
+        return True
 
-    return [p for p in build_line(0, []) if len(p) == length]
+    # Ejecutar búsqueda de combinaciones válidas
+    fill_positions(0, [])
+    return valid_possibilities
 
 def solve_nonogram(width, height, row_constraints, col_constraints):
     grid = [[None for _ in range(width)] for _ in range(height)]
     row_poss = [generate_line_possibilities(width, r) for r in row_constraints]
     col_poss = [generate_line_possibilities(height, c) for c in col_constraints]
 
+    # Verificar si alguna línea no tiene combinaciones posibles de inicio
+    for r, p in enumerate(row_poss):
+        if not p:
+            return None, f"Conflicto en la Fila {r+1}: Las cantidades de colores no caben o son inválidas."
+    for c, p in enumerate(col_poss):
+        if not p:
+            return None, f"Conflicto en la Columna {c+1}: Las cantidades de colores no caben o son inválidas."
+
     changed = True
     iter_count = 0
-    while changed and iter_count < 150:
+    while changed and iter_count < 200:
         changed = False
         iter_count += 1
         
+        # Filtrar filas
         for r in range(height):
             row_poss[r] = [p for p in row_poss[r] if all(grid[r][c] is None or grid[r][c] == p[c] for c in range(width))]
             if not row_poss[r]:
-                return None, f"Conflicto en la Fila {r+1}. Revisa las pistas."
+                return None, f"Conflicto en la Fila {r+1} durante el filtrado."
             for c in range(width):
                 colors = set(p[c] for p in row_poss[r])
                 if len(colors) == 1 and grid[r][c] is None:
                     grid[r][c] = list(colors)[0]
                     changed = True
 
+        # Filtrar columnas
         for c in range(width):
             col_poss[c] = [p for p in col_poss[c] if all(grid[r][c] is None or grid[r][c] == p[r] for r in range(height))]
             if not col_poss[c]:
-                return None, f"Conflicto en la Columna {c+1}. Revisa las pistas."
+                return None, f"Conflicto en la Columna {c+1} durante el filtrado."
             for r in range(height):
                 colors = set(p[r] for p in col_poss[c])
                 if len(colors) == 1 and grid[r][c] is None:
