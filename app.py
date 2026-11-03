@@ -206,4 +206,4 @@ if st.button("Solve! 🧩", type="primary", use_container_width=True):
                 result_html += f'<div style="width: 28px; height: 28px; background-color: {color}; border: 1px solid #1e293b; margin: 1px; border-radius: 4px;"></div>'
             result_html += '</div>'
         result_html += '</div>'
-        st.markdown(result_html, unsafe_allow_html=True)
+        st.markdown(result_html, unsafe_allow_html=True) 
