@@ -4,8 +4,89 @@ import itertools
 # Configuración de página móvil-friendly
 st.set_page_config(page_title="Hungry Cat Nonogram Solver", page_icon="🐱", layout="wide")
 
-st.title("🐱 Hungry Cat Nonogram Solver (Hasta 20x20)")
-st.write("Configura el grid de hasta 20x20, selecciona los colores y marca la regla de números **seguidos (con círculo)**.")
+st.title("🐱 Hungry Cat Nonogram Solver (Entrada Rápida)")
+st.write("Selecciona el tamaño, visualiza el grid y rellena las pistas de forma rápida con sus opciones de círculos.")
+
+# --- 1. SELECCIÓN DE TAMAÑO Y PREVISUALIZACIÓN VISUAL ---
+st.subheader("📏 1. Tamaño del Tablero y Previsualización")
+col_w, col_h = st.columns(2)
+with col_w:
+    width = st.number_input("Ancho (Columnas)", min_value=2, max_value=20, value=5)
+with col_h:
+    height = st.number_input("Alto (Filas)", min_value=2, max_value=20, value=5)
+
+# Mostrar previsualización vacía del grid inmediatamente
+st.markdown("##### Vista previa del grid vacío:")
+grid_preview_html = '<div style="display: inline-block; background: #1e293b; padding: 6px; border-radius: 8px;">'
+for r in range(height):
+    grid_preview_html += '<div style="display: flex;">'
+    for c in range(width):
+        grid_preview_html += '<div style="width: 22px; height: 22px; background: #334155; border: 1px solid #475569; margin: 1px; border-radius: 3px;"></div>'
+    grid_preview_html += '</div>'
+grid_preview_html += '</div>'
+st.markdown(grid_preview_html, unsafe_allow_html=True)
+
+# Paleta de colores ampliada
+COLOR_MAP = {
+    "Rojo": "#ef4444", 
+    "Azul": "#3b82f6", 
+    "Verde": "#22c55e", 
+    "Amarillo": "#eab308", 
+    "Morado": "#a855f7",
+    "Naranja": "#f97316",
+    "Marrón": "#92400e",
+    "Turquesa": "#06b6d4"
+}
+
+# Configuración global del número máximo de bloques por línea para mantener la tabla limpia
+max_blocks_limit = st.slider("Número máximo de bloques por fila/columna", min_value=1, max_value=8, value=3)
+
+# --- 2. ENTRADA RÁPIDA DE FILAS Y COLUMNAS ---
+tab_rows, tab_cols = st.tabs(["📋 Pistas de Filas", "📊 Pistas de Columnas"])
+
+row_constraints = []
+col_constraints = []
+
+with tab_rows:
+    st.markdown("Introduce los valores para cada fila. Marca el check **🔴** si el número va con círculo (seguido).")
+    for r in range(height):
+        cols_input = st.columns([1] + [2, 1] * max_blocks_limit)
+        with cols_input[0]:
+            st.markdown(f"**Fila {r+1}**")
+        
+        row_blocks = []
+        for b in range(max_blocks_limit):
+            with cols_input[1 + b * 2]:
+                val = st.number_input(f"F{r}_L{b}", min_value=0, max_value=width, value=0, key=f"r_l_{r}_{b}", label_visibility="collapsed")
+            with cols_input[2 + b * 2]:
+                chained = st.checkbox(f"🔴", key=f"r_ch_{r}_{b}", help="¿Va con círculo / seguido?")
+            
+            if val > 0:
+                # Color por defecto o seleccionable (usamos rojo por defecto si no se especifica otro, o selector rápido)
+                row_blocks.append((val, COLOR_MAP["Rojo"], chained))
+        row_constraints.append(row_blocks)
+
+# Selector de color global para las columnas o por defecto
+default_col_color = st.selectbox("Color principal por defecto para bloques", list(COLOR_MAP.keys()), index=0)
+
+with tab_cols:
+    st.markdown("Introduce los valores para cada columna. Marca el check **🔴** si el número va con círculo (seguido).")
+    for c in range(width):
+        cols_input = st.columns([1] + [2, 1] * max_blocks_limit)
+        with cols_input[0]:
+            st.markdown(f"**Col {c+1}**")
+        
+        col_blocks = []
+        for b in range(max_blocks_limit):
+            with cols_input[1 + b * 2]:
+                val = st.number_input(f"C{c}_L{b}", min_value=0, max_value=height, value=0, key=f"c_l_{c}_{b}", label_visibility="collapsed")
+            with cols_input[2 + b * 2]:
+                chained = st.checkbox(f"🔴", key=f"c_ch_{c}_{b}", help="¿Va con círculo / seguido?")
+            
+            if val > 0:
+                col_blocks.append((val, COLOR_MAP[default_col_color], chained))
+        col_constraints.append(col_blocks)
+
 
 # --- ALGORITMO DE RESOLUCIÓN ---
 def generate_line_possibilities(length, constraints):
@@ -76,69 +157,24 @@ def solve_nonogram(width, height, row_constraints, col_constraints):
 
     return grid, None
 
-# --- INTERFAZ GRAFICA ---
-col_w, col_h = st.columns(2)
-with col_w:
-    width = st.number_input("Ancho (Columnas)", min_value=2, max_value=20, value=5)
-with col_h:
-    height = st.number_input("Alto (Filas)", min_value=2, max_value=20, value=5)
 
-# Paleta de colores ampliada
-COLOR_MAP = {
-    "Rojo": "#ef4444", 
-    "Azul": "#3b82f6", 
-    "Verde": "#22c55e", 
-    "Amarillo": "#eab308", 
-    "Morado": "#a855f7",
-    "Naranja": "#f97316",
-    "Marrón": "#92400e",
-    "Turquesa": "#06b6d4"
-}
-
-st.subheader("1. Restricciones de Filas")
-row_constraints = []
-for r in range(height):
-    with st.expander(f"Fila {r+1}", expanded=False):
-        n_blocks = st.number_input(f"Número de bloques en Fila {r+1}", min_value=0, max_value=10, value=1, key=f"r_num_{r}")
-        blocks = []
-        for b in range(n_blocks):
-            c1, c2, c3 = st.columns([1, 1, 1])
-            with c1:
-                l = st.number_input(f"Longitud", min_value=1, max_value=width, value=1, key=f"r_l_{r}_{b}")
-            with c2:
-                col_name = st.selectbox(f"Color", list(COLOR_MAP.keys()), key=f"r_c_{r}_{b}")
-            with c3:
-                chained = st.checkbox(f"🔴 Con Círculo (Seguidos)", key=f"r_ch_{r}_{b}")
-            blocks.append((l, COLOR_MAP[col_name], chained))
-        row_constraints.append(blocks)
-
-st.subheader("2. Restricciones de Columnas")
-col_constraints = []
-for c in range(width):
-    with st.expander(f"Columna {c+1}", expanded=False):
-        n_blocks = st.number_input(f"Número de bloques en Col {c+1}", min_value=0, max_value=10, value=1, key=f"c_num_{c}")
-        blocks = []
-        for b in range(n_blocks):
-            c1, c2, c3 = st.columns([1, 1, 1])
-            with c1:
-                l = st.number_input(f"Longitud", min_value=1, max_value=height, value=1, key=f"c_l_{c}_{b}")
-            with c2:
-                col_name = st.selectbox(f"Color", list(COLOR_MAP.keys()), key=f"c_c_{c}_{b}")
-            with c3:
-                chained = st.checkbox(f"🔴 Con Círculo (Seguidos)", key=f"c_ch_{c}_{b}")
-            blocks.append((l, COLOR_MAP[col_name], chained))
-        col_constraints.append(blocks)
-
+# --- BOTÓN DE RESOLUCIÓN Y RESULTADO ---
+st.markdown("---")
 if st.button("🧩 Resolver Nonograma", type="primary", use_container_width=True):
     with st.spinner("Calculando solución..."):
         grid, err = solve_nonogram(width, height, row_constraints, col_constraints)
     if err:
         st.error(err)
     else:
-        st.success("¡Puzle Resuelto!")
+        st.success("¡Puzle Resuelto con éxito!")
         
+        # Renderizado visual final del resultado
+        result_html = '<div style="display: inline-block; background: #0f172a; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">'
         for row in grid:
-            cols = st.columns(width)
-            for i, cell in enumerate(row):
+            result_html += '<div style="display: flex;">'
+            for cell in row:
                 color = cell if cell and cell != '.' else "#334155"
-                cols[i].markdown(f'<div style="background-color:{color};height:28px;border-radius:4px;margin:1px;"></div>', unsafe_allow_html=True)
+                result_html += f'<div style="width: 32px; height: 32px; background-color: {color}; border: 1px solid #1e293b; margin: 2px; border-radius: 6px;"></div>'
+            result_html += '</div>'
+        result_html += 'ద్దiv>'
+        st.markdown(result_html, unsafe_allow_html=True)
