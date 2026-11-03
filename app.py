@@ -78,7 +78,7 @@ with tab_rows:
             with cols_input[1 + b * 2]:
                 val = st.number_input(f"F{r}_L{b}", min_value=0, max_value=width, value=0, key=f"r_l_{r}_{b}", label_visibility="collapsed")
             with cols_input[2 + b * 2]:
-                chained = st.checkbox(f"🔴", key=f"r_ch_{r}_{b}", help="¿Va con círculo / seguido?")
+                chained = st.checkbox(f"🔴", key=f"r_ch_{r}_{b}")
             
             if val > 0:
                 row_blocks.append((val, row_block_colors[b], chained))
@@ -113,7 +113,7 @@ with tab_cols:
             with cols_input[1 + b * 2]:
                 val = st.number_input(f"C{c}_L{b}", min_value=0, max_value=height, value=0, key=f"c_l_{c}_{b}", label_visibility="collapsed")
             with cols_input[2 + b * 2]:
-                chained = st.checkbox(f"🔴", key=f"c_ch_{c}_{b}", help="¿Va con círculo / seguido?")
+                chained = st.checkbox(f"🔴", key=f"c_ch_{c}_{b}")
             
             if val > 0:
                 col_blocks.append((val, col_block_colors[b], chained))
